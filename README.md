@@ -64,7 +64,8 @@ docker compose exec -T backend python -m scripts.seed_demo
 | `backend/src/schemas.py`、`workflow.py`、`main.py` | 校验、状态转换及 FastAPI 路由 |
 | `backend/src/auth.py` | PBKDF2 密码、JWT 和角色依赖 |
 | `backend/src/priority_model.py`、`worker.py` | 拟合、计算解释、持久化评分与心跳 |
-| `frontend/src/{residents,observations,alerts,handovers}.js` | 四个业务模块 |
+| `backend/src/bed_transfers.py`、`bed_transfer_router.py` | 跨翼换床、并发顺序、响应撤回／保留／重派 |
+| `frontend/src/{residents,observations,alerts,handovers,bedTransfers}.js` | 业务模块 |
 | `frontend/src/{app,store,shared}.js` | 路由、请求、会话、显示与表单工具 |
 
 角色、等级、告警状态和班次分别在 Python `schemas.py` 的 `Role`、`Priority`、`AlertStatus`、`Shift`，SQL 迁移的约束，以及前端 `shared.js` 的 `ROLES`、`PRIORITIES`、`ALERTS`、`SHIFTS`。观察及交班的状态值贯穿迁移、`workflow.py` 与前端 `OBSERVATIONS`、`HANDOVERS`。观察信号在 Python `Signals`、SQL 表列、训练语料与前端 `FEATURES` 中对应。
@@ -91,3 +92,14 @@ docker compose exec -T backend python -m scripts.seed_demo
 首次种子运行会为康复翼一层创建 115-A 沈慧芳的告警和唐宁的 8 小时覆盖。唐宁使用 `relief@zhaohui.local` 和 `zhaohui-demo` 登录。覆盖到期后，值班长可登记新班次。再次执行 seed 会保留既有班次和业务记录。未登记过覆盖的区域可继续使用原有派单流程，值班长可为任何在办响应添加核对清单。
 
 新增模型位于 `backend/migrations/003_shift_coverage.sql` 和 `004_response_checks.sql`。`coverage*.py`、`checklist*.py` 负责规则、请求校验及 API。原生前端的值班覆盖、可用人员选择和核对工作台分别由 `shiftCoverage.js`、`coverageDispatch.js`、`responseChecks.js` 和 `checklistItems.js` 提供。
+
+## 跨翼床位调换
+
+1. 值班长在「床位调换」填写调床单编号和说明，各选东、西翼一位住户。提交时在同一事务内锁定两位住户的床位：两边一起换，任一床位与登记时不一致（已被其他调床单移走），本单记为「未生效」并保留原因，两人的床位都不动。
+2. 与处置接单同时提交时，以先提交的一方为准。调床单先完成时，未接单响应撤回并释放原班的在办名额，已接单响应仍由原照护员办完；接单先完成时，调床单把该响应视为已接单。
+3. 撤回的响应进入「待重派响应」，由值班长在新翼区重新指定照护员。重派沿用该告警的已复核版本和优先级时限，并按新区域的值班覆盖校验时限与容量。在完成重派前，该告警不能另派普通响应或提交交班。
+4. 同一调床单编号重试会返回已存结果，不重复换床。页面按两位住户列出新床位（与实际床位比对）、仍在原照护员手上的响应，以及每条待重派响应的当前状态和新响应编号。
+
+新增模型位于 `backend/migrations/005_bed_transfers.sql`。`bed_transfers.py`、`bed_transfer_schemas.py` 负责换床规则、并发顺序、撤回／保留与重派；`bed_transfer_router.py` 提供 API，前端为 `frontend/src/bedTransfers.js`。审计事件记录 `bed_transfer_applied`、`bed_transfer_voided`、`care_response_kept_by_bed_transfer`、`care_response_withdrawn_by_bed_transfer` 和 `bed_redispatch_assigned`。
+
+种子运行会为 207-B 顾成林与 309-A 宋玉琴生成一张已生效的示例调床单，并留下顾成林的待重派响应，供演示新翼区重派。

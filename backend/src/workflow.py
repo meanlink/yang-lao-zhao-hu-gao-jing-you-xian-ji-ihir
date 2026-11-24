@@ -145,6 +145,9 @@ def dispatch(db, alert_id, data, actor):
         raise HTTPException(409, '需先复核当前版本才可交班')
     if active_response(db, alert_id):
         raise HTTPException(409, '先完成或撤销本条告警的照护响应任务，再提交交班')
+    if db.execute("SELECT 1 FROM bed_transfer_redispatches WHERE alert_id=%s AND status='pending'",
+                  (alert_id,)).fetchone():
+        raise HTTPException(409, '住户调床后有待重派响应，请先到床位调换页面完成重派')
     observations = db.execute('SELECT ref, result FROM observations WHERE alert_id=%s ORDER BY id',
                               (alert_id,)).fetchall()
     resident = db.execute('SELECT code,name,room,unit FROM residents WHERE id=%s',

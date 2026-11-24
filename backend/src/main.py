@@ -11,7 +11,7 @@ from psycopg import OperationalError
 from redis import RedisError
 
 from scripts.seed_demo import seed
-from . import checklist_router, coverage_router, operations_router, workflow
+from . import bed_transfer_router, checklist_router, coverage_router, operations_router, workflow
 from .auth import current_staff, hash_password, require, token_for, verify_password
 from .db import MODEL_DIR, audit, cache, connect, migrate
 from .schemas import (AlertStatus, Credentials, Handover, NewObservation, Receipt, Resident,
@@ -39,6 +39,7 @@ app = FastAPI(title='朝晖照护交接台', lifespan=lifespan)
 app.include_router(operations_router.router)
 app.include_router(coverage_router.router)
 app.include_router(checklist_router.router)
+app.include_router(bed_transfer_router.router)
 
 
 @app.middleware('http')

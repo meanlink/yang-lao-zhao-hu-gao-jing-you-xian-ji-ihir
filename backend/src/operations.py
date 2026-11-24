@@ -18,6 +18,9 @@ def create_response(db, alert_id, data, actor):
         raise HTTPException(409, '请刷新并选择已复核的当前告警版本')
     if workflow.active_response(db, alert_id):
         raise HTTPException(409, '本告警已有一条在办响应任务')
+    if db.execute("SELECT 1 FROM bed_transfer_redispatches WHERE alert_id=%s AND status='pending'",
+                  (alert_id,)).fetchone():
+        raise HTTPException(409, '该住户调床后有待重派响应，请到床位调换页面按新翼区重派')
     minutes = RESPONSE_MINUTES[alert['priority']]
     unit = db.execute('SELECT unit FROM residents WHERE id=%s', (alert['resident_id'],)).fetchone()['unit']
     coverage.reserve(db, unit, data.assigned_to, data.coverage_id, minutes)

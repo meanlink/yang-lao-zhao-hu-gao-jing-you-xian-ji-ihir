@@ -1,6 +1,7 @@
 import json
 
 from scripts.seed_coverage import seed_coverage_case
+from scripts.seed_bed_transfer import seed_bed_transfer_case
 
 from src.auth import hash_password
 from src.db import connect, migrate
@@ -61,9 +62,11 @@ def seed():
                     dispatch(db, alert['id'], Handover(revision=alert['revision'], target_shift='night',
                                                        next_action='核对 312-B 例行巡视回执并登记。'), staff['lead'])
         seed_coverage_case(db, staff['lead'])
+        seed_bed_transfer_case(db, staff)
         return {table: db.execute(f'SELECT count(*) AS n FROM {table}').fetchone()['n']
                 for table in ('staff', 'residents', 'observations', 'alerts', 'handovers', 'audit_events',
-                              'shift_coverage', 'response_checklists', 'response_check_items', 'response_check_events')}
+                              'shift_coverage', 'response_checklists', 'response_check_items',
+                              'response_check_events', 'bed_transfers', 'bed_transfer_redispatches')}
 
 
 if __name__ == '__main__':
